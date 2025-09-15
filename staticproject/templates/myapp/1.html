@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body bgcolor="orange" >
+    <center>
+        <h1>{{Name}}'s favourites!!</h1>
+    </center>
+    <div class="animal">
+        <h2>{{Animal}}</h2>
+        <h3><a href="https://en.wikipedia.org/wiki/Dog">click here </a></h3>
+        <img src="{% static 'image/dog.jpg' %}" alt="dog">
+    </div>
+
+    <div class="animal">
+        <h2>{{Bird}}</h2>
+        <h3><a href="https://en.wikipedia.org/wiki/Peafowl">click here </a></h3>
+        <img src="{% static 'image/peacock.jpg' %}" alt="dog">
+    </div>
+
+    <div class="animal">
+        <h2>{{Color}}</h2>
+        <h3><a href="https://en.wikipedia.org/wiki/Black">click here </a></h3>
+        <img src="{% static 'image/black.jpg' %}" alt="dog">
+    </div>  
+
+</body>
+</html>
