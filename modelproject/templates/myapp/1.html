@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body style="background-color: antiquewhite;">
+    <center>
+        <h1>Student Databses</h1>
+    </center>
+    <center>
+    <table border="2px">
+        <tr>
+            <td><b>NUMBER</b></td>
+            <td><b>NAME</b></td>
+            <td><b>MARKS</b></td>
+        </tr>
+        <tr>
+            {% for i in Stud %}
+            <td>{{i.number}}</td>
+            <td>{{i.name}}</td>
+            <td>{{i.marks}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    </center>
+</body>
+</html>
