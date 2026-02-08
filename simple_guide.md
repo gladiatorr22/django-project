@@ -739,6 +739,86 @@ Create `merchants/templates/merchants/merchant_confirm_delete.html`:
     </div>
 </div>
 {% endblock %}
+
+---
+# UPDATE TRANSACTION
+@login_required
+def transaction_update(request, pk):
+    # Fetch the transaction by its primary key
+    transaction = get_object_or_404(Transaction, pk=pk)
+    # We need the merchant's ID to redirect back to their page later
+    merchant_id = transaction.merchant.id 
+
+    if request.method == 'POST':
+        form = TransactionForm(request.POST, instance=transaction)
+        if form.is_valid():
+            form.save()
+            return redirect('merchant_detail', pk=merchant_id)
+    else:
+        form = TransactionForm(instance=transaction)
+    
+    return render(request, 'merchants/transaction_form.html', {
+        'form': form, 
+        'title': 'Edit Transaction',
+        'merchant': transaction.merchant
+    })
+
+# DELETE TRANSACTION
+@login_required
+def transaction_delete(request, pk):
+    transaction = get_object_or_404(Transaction, pk=pk)
+    merchant_id = transaction.merchant.id
+    
+    if request.method == 'POST':
+        transaction.delete()
+        return redirect('merchant_detail', pk=merchant_id)
+    
+    return render(request, 'merchants/transaction_confirm_delete.html', {'transaction': transaction})
+
+
+-----
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card shadow-sm border-danger">
+    <div class="card-body">
+        <h3>Delete Transaction?</h3>
+        <p>Are you sure you want to delete transaction <strong>{{ transaction.transaction_id }}</strong> 
+           amounting to <strong>₹{{ transaction.amount }}</strong>?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Confirm Delete</button>
+            <a href="{% url 'merchant_detail' transaction.merchant.id %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+-----
+
+<tbody>
+    {% for txn in transactions %}
+    <tr>
+        <td><code>{{ txn.transaction_id }}</code></td>
+        <td><strong>₹{{ txn.amount }}</strong></td>
+        <td>...status badge...</td>
+        <td>
+            <a href="{% url 'transaction_update' txn.pk %}" class="btn btn-sm btn-outline-warning">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'transaction_delete' txn.pk %}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+
+
+path('transaction/<int:pk>/edit/', views.transaction_update, name='transaction_update'),
+path('transaction/<int:pk>/delete/', views.transaction_delete, name='transaction_delete'),
+
+
 ```
 ---
 
