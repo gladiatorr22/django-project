@@ -208,14 +208,16 @@ class MerchantForm(forms.ModelForm):
 
 from .models import Transaction
 
+from .models import Transaction
+
 class TransactionForm(forms.ModelForm):
     class Meta:
         model = Transaction
-        fields = ['transaction_id', 'amount', 'status'] # We skip 'merchant' because we'll auto-assign it
+        fields = ['transaction_id', 'amount', 'status']
         widgets = {
-            'transaction_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'transaction_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. TXN12345'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control'}),
-            'status': forms.Select(choices=Transaction.STATUS_CHOICES, attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
         }
 ```
 
@@ -284,20 +286,27 @@ def merchant_delete(request, pk):
         merchant.delete()
         return redirect('merchant_list')
     return render(request, 'merchants/merchant_confirm_delete.html', {'merchant': merchant})
-
 @login_required
-def add_transaction(request, pk):
+def transaction_create(request, pk):
+    # Fetch the specific merchant using the ID from the URL
     merchant = get_object_or_404(Merchant, pk=pk)
+    
     if request.method == 'POST':
         form = TransactionForm(request.POST)
         if form.is_valid():
+            # commit=False creates the object but doesn't save to DB yet
             transaction = form.save(commit=False)
-            transaction.merchant = merchant  # Link the transaction to this specific merchant
-            transaction.save()
+            # Manually link the transaction to our merchant
+            transaction.merchant = merchant
+            transaction.save() # Now save it to the database
             return redirect('merchant_detail', pk=pk)
     else:
         form = TransactionForm()
-    return render(request, 'merchants/transaction_form.html', {'form': form, 'merchant': merchant})
+        
+    return render(request, 'merchants/transaction_form.html', {
+        'form': form, 
+        'merchant': merchant
+    })
 ```
 
 ---
@@ -706,7 +715,31 @@ Create `merchants/templates/merchants/merchant_confirm_delete.html`:
 </div>
 {% endblock %}
 ```
+``` html
+{% extends 'base.html' %}
 
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4>Add Transaction for {{ merchant.business_name }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Save Transaction</button>
+                        <a href="{% url 'merchant_detail' merchant.pk %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+```
 ---
 
 ## Step 9: Configure Login Settings (Day 7)
