@@ -205,6 +205,18 @@ class MerchantForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '10'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
+
+from .models import Transaction
+
+class TransactionForm(forms.ModelForm):
+    class Meta:
+        model = Transaction
+        fields = ['transaction_id', 'amount', 'status'] # We skip 'merchant' because we'll auto-assign it
+        widgets = {
+            'transaction_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control'}),
+            'status': forms.Select(choices=Transaction.STATUS_CHOICES, attrs={'class': 'form-select'}),
+        }
 ```
 
 ---
@@ -272,6 +284,20 @@ def merchant_delete(request, pk):
         merchant.delete()
         return redirect('merchant_list')
     return render(request, 'merchants/merchant_confirm_delete.html', {'merchant': merchant})
+
+@login_required
+def add_transaction(request, pk):
+    merchant = get_object_or_404(Merchant, pk=pk)
+    if request.method == 'POST':
+        form = TransactionForm(request.POST)
+        if form.is_valid():
+            transaction = form.save(commit=False)
+            transaction.merchant = merchant  # Link the transaction to this specific merchant
+            transaction.save()
+            return redirect('merchant_detail', pk=pk)
+    else:
+        form = TransactionForm()
+    return render(request, 'merchants/transaction_form.html', {'form': form, 'merchant': merchant})
 ```
 
 ---
@@ -290,6 +316,7 @@ urlpatterns = [
     path('<int:pk>/', views.merchant_detail, name='merchant_detail'),
     path('<int:pk>/edit/', views.merchant_update, name='merchant_update'),
     path('<int:pk>/delete/', views.merchant_delete, name='merchant_delete'),
+    path('<int:pk>/add-transaction/', views.add_transaction, name='add_transaction'),
 ]
 ```
 
@@ -596,6 +623,9 @@ Create `merchants/templates/merchants/merchant_detail.html`:
         <div class="card shadow-sm">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0"><i class="bi bi-receipt"></i> Transactions</h5>
+                    <a href="{% url 'add_transaction' merchant.pk %}" class="btn btn-sm btn-success">
+    + Add New Transaction
+</a>
             </div>
             <div class="card-body">
                 {% if transactions %}
@@ -690,6 +720,21 @@ LOGIN_REDIRECT_URL = 'merchant_list'
 LOGOUT_REDIRECT_URL = 'login'
 ```
 
+---
+
+```python
+from .models import Transaction
+
+class TransactionForm(forms.ModelForm):
+    class Meta:
+        model = Transaction
+        fields = ['transaction_id', 'amount', 'status'] # We skip 'merchant' because we'll auto-assign it
+        widgets = {
+            'transaction_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control'}),
+            'status': forms.Select(choices=Transaction.STATUS_CHOICES, attrs={'class': 'form-select'}),
+        }
+```
 ---
 
 ## Step 10: Add Sample Data (Day 7)
