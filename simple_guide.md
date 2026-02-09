@@ -859,7 +859,7 @@ python manage.py shell
 ```
 
 ```python
-from merchants.models import Merchant, Transaction
+from merchant.models import Merchant, Transaction
 from decimal import Decimal
 
 # Create merchants
