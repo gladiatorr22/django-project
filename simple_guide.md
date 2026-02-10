@@ -16,6 +16,13 @@ A basic web app where you can:
 
 ---
 
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc
+echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc
+echo 'eval "$(pyenv init -)"' >> ~/.zshrc
+source ~/.zshrc
+
+
+
 ## Step 1: Setup (Day 1)
 
 ### Install Python and Create Project
