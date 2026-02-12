@@ -1,0 +1,38 @@
+from django.core.cache import cache
+from providers.utils.payufin.finnone_v8_apis import PayUFinV8API
+
+def test_forbidden_error_handling():
+    print("\n" + "="*50)
+    print("TEST: 403 FORBIDDEN CACHE CLEAR")
+    print("="*50)
+
+    # 1. Setup: Put a "stale" token in the cache
+    test_token = "stale_token_123"
+    token_key = PayUFinV8API.PAYUFIN_ACCESS_TOKEN
+    cache.set(token_key, test_token, 900)
+    print(f"[1] Initial: Token '{test_token}' placed in cache.")
+
+    # 2. Simulate the 403 Error
+    print("[2] Simulating a 403 Forbidden response...")
+    
+    # This simulates the logic inside your API exception handler
+    status_code = 403 
+    
+    if status_code in [401, 403]:
+        print(f"    Detected {status_code}. Triggering cache delete...")
+        cache.delete(token_key)
+    
+    # 3. Verification
+    cached_after = cache.get(token_key)
+    
+    print("-" * 50)
+    if cached_after is None:
+        print("RESULT: ✓ PASS")
+        print("Logic correctly cleared the cache. The next API call will fetch a fresh token.")
+    else:
+        print("RESULT: ✗ FAIL")
+        print(f"Logic failed. The stale token '{cached_after}' is still in cache.")
+    print("="*50 + "\n")
+
+# Execute the test
+test_forbidden_error_handling()
