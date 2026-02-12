@@ -14,6 +14,22 @@ A basic web app where you can:
 
 **No complicated stuff** - just pure Django basics! ✨
 
+
+
+try:
+        expires_in = response_json.get('expires_in', 900)
+        safe_timeout = int(expires_in * 0.9)
+        cache.set(
+            PayUFinInVBAPI.PAYU_FIN_ACCESS_TOKEN,
+            response_json.get('access_token'),
+            timeout=safe_timeout
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Token caching failed: {e}")
+
+
 ---
 
 source ~/.zshrc
