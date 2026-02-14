@@ -36,3 +36,42 @@ def test_forbidden_error_handling():
 
 # Execute the test
 test_forbidden_error_handling()
+
+
+
+
+```python
+
+def refresh_access_token(self):
+
+    LOGGER.warning("Refreshing V8 token")
+
+    cache.delete(self.PAYUFIN_ACCESS_TOKEN)
+
+    data = self._get_access_token()
+
+    new_token = data["access_token"]
+
+    cache.set(
+        self.PAYUFIN_ACCESS_TOKEN,
+        new_token,
+        self.ACCESS_TOKEN_EXPIRE
+    )
+
+    self.access_token = new_token   # optional but nice
+
+    LOGGER.warning("New token stored")
+
+    return new_token
+
+
+if status_code in [401, 403]:
+
+    LOGGER.warning(f"Invalid token {status_code}")
+
+    self.refresh_access_token()
+
+    return func(self, *args, **kwargs)
+
+
+```
