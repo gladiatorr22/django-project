@@ -69,9 +69,15 @@ if status_code in [401, 403]:
 
     LOGGER.warning(f"Invalid token {status_code}")
 
-    self.refresh_access_token()
+    if getattr(self, "_token_retry", False):
+        raise e
 
-    return func(self, *args, **kwargs)
+    self._token_retry = True
+    try:
+        self.refresh_access_token()
+        return func(self, *args, **kwargs)
+    finally:
+        self._token_retry = False
 
 
 ```
