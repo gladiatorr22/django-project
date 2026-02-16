@@ -1,4 +1,4 @@
-from django.core.cache import cache
+ifrom django.core.cache import cache
 from providers.utils.payufin.finnone_v8_apis import PayUFinV8API
 
 def test_forbidden_error_handling():
@@ -79,5 +79,39 @@ if status_code in [401, 403]:
     finally:
         self._token_retry = False
 
+## Summary
+Implements automatic token refresh when Finnone V8 API returns 401/403 token expiry errors.
 
-```
+## Problem
+When the access token expires before the 15-minute cache TTL, API calls fail with 401/403 errors. The system was not handling these errors, causing subsequent requests to continue using the expired token.
+
+## Solution
+- Added token expiry detection in `conditional_decorator` (apis.py)
+- Clear expired token from cache on 401/403 error
+- Automatic retry using existing `access_token` property which fetches fresh token
+- Added retry loop prevention using `_token_retry` flag
+
+## Changes Made
+**Files Modified:**
+- `providers/utils/payufin/apis.py`: Enhanced `conditional_decorator` with token expiry handling
+- `providers/utils/payufin/finnone_v8_apis.py`: Ensured `access_token` property works with cache clearing
+
+## How It Works
+1. API call with expired token → 401/403 error
+2. Decorator catches `TokenExpire` exception
+3. Clears cached token: `cache.delete(self.__class__.PAYUFIN_ACCESS_TOKEN)`
+4. Retries request
+5. `access_token` property sees empty cache → fetches new token
+6. Request succeeds with fresh token
+
+## Testing Done
+✅ Manually set invalid token in cache
+✅ Made API request → Got 403 error
+✅ Verified cache was cleared
+✅ Confirmed new token was fetched
+✅ Verified retry mechanism works
+✅ Tested retry loop prevention
+
+## Ticket
+Fixes: COL-10227
+
