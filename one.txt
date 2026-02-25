@@ -1,55 +1,63 @@
-from django import forms
-from .models import Config
+def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    
+    # Try POST data first
+    value_type = None
+    if args and args[0]:
+        value_type = args[0].get('value_type')
+    
+    # Fall back to existing instance value
+    if not value_type and self.instance and self.instance.pk:
+        if self.instance.value in ('true', 'false'):
+            value_type = 'boolean'
+        else:
+            value_type = 'string'
 
-class ConfigAdminForm(forms.ModelForm):
-    VALUE_TYPE_CHOICES = [
-        ('string', 'String'),
-        ('boolean', 'Boolean'),
-    ]
+    if value_type == 'boolean':
+        self.fields['value'] = forms.ChoiceField(
+            choices=[('true', 'True'), ('false', 'False')],
+            widget=forms.RadioSelect,
+            label='Value'
+        )
+    else:
+        self.fields['value'] = forms.CharField(
+            widget=forms.TextInput,
+            required=False,
+            label='Value'
+        )
 
-    value_type = forms.ChoiceField(
-        choices=VALUE_TYPE_CHOICES,
-        widget=forms.Select,
-        required=False,
-        label='Value Type'
-    )
 
-    value = forms.ChoiceField(
-        choices=[('true', 'True'), ('false', 'False')],
-        widget=forms.RadioSelect,
-        required=False,
-        label='Value'
-    )
 
-    class Meta:
-        model = Config
-        fields = ['key', 'value_type', 'value', 'remarks']
-admin.py — just add form and update fieldsets
-from .forms import ConfigAdminForm
 
 class ConfigAdmin(DetailedLogModelAdmin):
-    form = ConfigAdminForm                    # <- add this
+    form = ConfigAdminForm
     list_per_page = 50
     search_fields = ("=key", "=updated_by__email", "=updated_by__username")
     readonly_fields = ("created_at", "modified_at", "updated_by")
     list_display = ("key", "value", "remarks", "updated_by", "modified_at")
     fieldsets = (
-        (None, {"fields": ("key", "value_type", "value", "remarks")}),  # <- add value_type
+        (None, {"fields": ("key", "value_type", "value", "remarks")}),
     )
 
-    def save_model(self, request, config_object, form, change):
-        ConfigService.save(config_object, request.user)
+    def get_form(self, request, obj=None, **kwargs):
+        Form = super().get_form(request, obj, **kwargs)
+        class RequestForm(Form):
+            def __new__(cls, *args, **form_args):
+                instance = Form(*args, **form_args)
+                return instance
+        return Form
 
-
-
-def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-        if request.method == 'POST':
-            post_data = request.POST.copy()
-            value_type = post_data.get('value_type')
-            # If value_type is boolean but value is not true/false, just re-render
-            if value_type == 'boolean' and post_data.get('value') not in ('true', 'false'):
-                post_data['value'] = 'true'  # default
-                request.POST = post_data
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        if request.method == 'POST' and '_save' in request.POST:
+            value_type = request.POST.get('value_type')
+            value = request.POST.get('value')
+            # If boolean selected, don't save, just re-render
+            if value_type == 'boolean' and value not in ('true', 'false'):
+                mutable = request.POST.copy()
+                mutable['value'] = 'true'
+                request.POST = mutable
+                request.method = 'GET'  # force re-render instead of save
+                return super().changeform_view(request, object_id, form_url, extra_context)
         return super().changeform_view(request, object_id, form_url, extra_context)
 
     def save_model(self, request, config_object, form, change):
