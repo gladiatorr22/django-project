@@ -39,3 +39,18 @@ class ConfigAdmin(DetailedLogModelAdmin):
 
     def save_model(self, request, config_object, form, change):
         ConfigService.save(config_object, request.user)
+
+
+
+def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        if request.method == 'POST':
+            post_data = request.POST.copy()
+            value_type = post_data.get('value_type')
+            # If value_type is boolean but value is not true/false, just re-render
+            if value_type == 'boolean' and post_data.get('value') not in ('true', 'false'):
+                post_data['value'] = 'true'  # default
+                request.POST = post_data
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+    def save_model(self, request, config_object, form, change):
+        ConfigService.save(config_object, request.user)
