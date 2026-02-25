@@ -1,58 +1,77 @@
-Comment 1: Implementation Complete
-COL-10227 - Implementation Complete ✅
-Implemented automatic token refresh mechanism for Finnone V8 API to handle token expiry errors gracefully.
-Changes:
-Enhanced conditional_decorator in apis.py to detect and handle 401/403 token expiry responses
-Added automatic cache clearing and retry logic with loop prevention
-Token refresh now happens transparently when expiry is detected mid-session
-Technical Details:
-Detects TokenExpire exceptions on API calls
-Clears cached token using cache.delete(self.__class__.PAYUFIN_ACCESS_TOKEN)
-Retries request automatically, triggering fresh token fetch via access_token property
-Added _token_retry flag to prevent infinite retry loops
-Local Testing:
-✅ Simulated token expiry by setting invalid token in cache
-✅ Verified 401/403 error triggers cache clear and retry
-✅ Confirmed new token is fetched and request succeeds
-✅ Validated retry loop prevention mechanism
-Files Modified:
-providers/utils/payufin/apis.py
-providers/utils/payufin/finnone_v8_apis.py
-Ready for code review. @[reviewer-name]
-Comment 2: Code Review Addressed
-Updates Based on Review Feedback
-[List any changes made based on review comments]
-Changes pushed and ready for re-review.
-Comment 3: Deployed to Sandbox
-Deployed to Sandbox Environment 🚀
-Build deployed to sandbox for testing. Deployment details:
-Environment: Sandbox
-Deployment Time: [timestamp]
-Build Version: [version/commit hash]
-Ready for sandbox testing.
-Comment 4: Sandbox Testing Complete
-Sandbox Testing Complete ✅
-Conducted comprehensive testing in sandbox environment post-deployment.
-Test Scenarios Validated:
-✅ Token Expiry Handling: Simulated expired token scenario - verified automatic refresh and retry
-✅ API Call Success: Confirmed API requests succeed after token refresh
-✅ Cache Behavior: Validated expired tokens are properly cleared from cache
-✅ Error Recovery: Tested multiple consecutive calls with expired token
-✅ No Regression: Verified existing Finnone V8 API functionality remains intact
-Results:
-Token refresh mechanism working as expected
-No errors in application logs
-API response times normal
-Zero failed requests due to token issues
-Sandbox Environment Details:
-Testing Period: [date/time range]
-Test Cases Executed: [number] scenarios
-Success Rate: 100%
-Ready for production deployment.
-Comment 5: Ready for Production
-Ready for Production Deployment ✅
-✅ Code review approved
-✅ Sandbox testing completed successfully
-✅ No issues identified
-✅ All acceptance criteria met
-Awaiting production deployment schedule.
+from django import forms
+from .models import Config
+
+class ConfigAdminForm(forms.ModelForm):
+    VALUE_TYPE_CHOICES = [
+        ('string', 'String'),
+        ('boolean', 'Boolean'),
+    ]
+    
+    value_type = forms.ChoiceField(
+        choices=VALUE_TYPE_CHOICES,
+        widget=forms.RadioSelect,
+        required=False,
+        initial='string',
+        label='Value Type'
+    )
+    
+    boolean_value = forms.ChoiceField(
+        choices=[('true', 'True'), ('false', 'False')],
+        widget=forms.RadioSelect,
+        required=False,
+        label='Boolean Value'
+    )
+
+    class Meta:
+        model = Config
+        fields = ['key', 'value', 'remarks']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # If editing existing config, keep value as plain string field
+        if self.instance and self.instance.pk:
+            self.fields['value_type'].widget = forms.HiddenInput()
+            self.fields['boolean_value'].widget = forms.HiddenInput()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Only for new configs (no pk yet)
+        if not self.instance.pk:
+            value_type = cleaned_data.get('value_type')
+            if value_type == 'boolean':
+                bool_val = cleaned_data.get('boolean_value')
+                cleaned_data['value'] = bool_val  # sets "true" or "false"
+        return cleaned_data
+Then in your ConfigAdmin in admin.py:
+from .forms import ConfigAdminForm
+
+class ConfigAdmin(DetailedLogModelAdmin):
+    form = ConfigAdminForm  # <-- Add this
+    list_per_page = 50
+    search_fields = ("=key", "=updated_by__email", "=updated_by__username")
+    readonly_fields = ("created_at", "modified_at", "updated_by")
+    list_display = ("key", "value", "remarks", "updated_by", "modified_at")
+    fieldsets = (
+        (None, {"fields": (
+            "key",
+            "value_type",   # <-- Add for new configs
+            "value",
+            "boolean_value", # <-- Add for new configs
+            "remarks"
+        )}),
+    )
+
+    def get_fieldsets(self, request, obj=None):
+        if obj:  # Editing existing config
+            return (
+                (None, {"fields": ("key", "value", "remarks")}),
+            )
+        # New config — show type selector
+        return (
+            (None, {"fields": (
+                "key", "value_type", "value", "boolean_value", "remarks"
+            )}),
+        )
+
+    def save_model(self, request, config_object, form, change):
+        ConfigService.save(config_object, request.user)
