@@ -6,72 +6,36 @@ class ConfigAdminForm(forms.ModelForm):
         ('string', 'String'),
         ('boolean', 'Boolean'),
     ]
-    
+
     value_type = forms.ChoiceField(
         choices=VALUE_TYPE_CHOICES,
-        widget=forms.RadioSelect,
+        widget=forms.Select,
         required=False,
-        initial='string',
         label='Value Type'
     )
-    
-    boolean_value = forms.ChoiceField(
+
+    value = forms.ChoiceField(
         choices=[('true', 'True'), ('false', 'False')],
         widget=forms.RadioSelect,
         required=False,
-        label='Boolean Value'
+        label='Value'
     )
 
     class Meta:
         model = Config
-        fields = ['key', 'value', 'remarks']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # If editing existing config, keep value as plain string field
-        if self.instance and self.instance.pk:
-            self.fields['value_type'].widget = forms.HiddenInput()
-            self.fields['boolean_value'].widget = forms.HiddenInput()
-
-    def clean(self):
-        cleaned_data = super().clean()
-        # Only for new configs (no pk yet)
-        if not self.instance.pk:
-            value_type = cleaned_data.get('value_type')
-            if value_type == 'boolean':
-                bool_val = cleaned_data.get('boolean_value')
-                cleaned_data['value'] = bool_val  # sets "true" or "false"
-        return cleaned_data
-Then in your ConfigAdmin in admin.py:
+        fields = ['key', 'value_type', 'value', 'remarks']
+admin.py — just add form and update fieldsets
 from .forms import ConfigAdminForm
 
 class ConfigAdmin(DetailedLogModelAdmin):
-    form = ConfigAdminForm  # <-- Add this
+    form = ConfigAdminForm                    # <- add this
     list_per_page = 50
     search_fields = ("=key", "=updated_by__email", "=updated_by__username")
     readonly_fields = ("created_at", "modified_at", "updated_by")
     list_display = ("key", "value", "remarks", "updated_by", "modified_at")
     fieldsets = (
-        (None, {"fields": (
-            "key",
-            "value_type",   # <-- Add for new configs
-            "value",
-            "boolean_value", # <-- Add for new configs
-            "remarks"
-        )}),
+        (None, {"fields": ("key", "value_type", "value", "remarks")}),  # <- add value_type
     )
-
-    def get_fieldsets(self, request, obj=None):
-        if obj:  # Editing existing config
-            return (
-                (None, {"fields": ("key", "value", "remarks")}),
-            )
-        # New config — show type selector
-        return (
-            (None, {"fields": (
-                "key", "value_type", "value", "boolean_value", "remarks"
-            )}),
-        )
 
     def save_model(self, request, config_object, form, change):
         ConfigService.save(config_object, request.user)
