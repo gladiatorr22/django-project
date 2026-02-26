@@ -1,16 +1,8 @@
+forms.py:
 class ConfigAdminForm(forms.ModelForm):
-    VALUE_TYPE_CHOICES = [
-        ('string', 'String'),
-        ('boolean', 'Boolean'),
-    ]
-
-    value_type = forms.ChoiceField(
-        choices=VALUE_TYPE_CHOICES,
-        widget=forms.Select,
-        required=False,
-        label='Value Type'
-    )
-
+    VALUE_TYPE_CHOICES = [('string', 'String'), ('boolean', 'Boolean')]
+    
+    value_type = forms.ChoiceField(choices=VALUE_TYPE_CHOICES, required=False, label='Value Type')
     boolean_value = forms.ChoiceField(
         choices=[('true', 'True'), ('false', 'False')],
         widget=forms.RadioSelect,
@@ -26,38 +18,29 @@ class ConfigAdminForm(forms.ModelForm):
         self.is_new = kwargs.pop('is_new', False)
         super().__init__(*args, **kwargs)
         self.fields['value'].required = False
-
         if not self.is_new:
-            # Existing config: remove new fields, keep only original fields
             self.fields.pop('value_type', None)
             self.fields.pop('boolean_value', None)
-        else:
-            # New config: determine which field to show based on value_type
-            value_type = self.data.get('value_type') or 'string'
-            if value_type == 'boolean':
-                self.fields['value'].widget = forms.HiddenInput()
-            else:
-                self.fields['boolean_value'].widget = forms.HiddenInput()
 
     def clean(self):
         cleaned_data = super().clean()
-        if self.is_new:
-            value_type = cleaned_data.get('value_type')
-            if value_type == 'boolean':
-                boolean_val = cleaned_data.get('boolean_value')
-                if not boolean_val:
-                    raise forms.ValidationError("Boolean value is required.")
-                cleaned_data['value'] = boolean_val  # store 'true'/'false' as string in value
-            else:
-                if not cleaned_data.get('value'):
-                    raise forms.ValidationError("Value is required.")
+        if not self.is_new:
+            return cleaned_data
+        
+        value_type = cleaned_data.get('value_type')
+        value = cleaned_data.get('value', '').strip()
+        boolean_value = cleaned_data.get('boolean_value')
+
+        if value_type == 'boolean':
+            if not boolean_value:
+                raise forms.ValidationError("Please select a boolean value.")
+            cleaned_data['value'] = boolean_value  # saves 'true'/'false' into value field
+        else:
+            if not value:
+                raise forms.ValidationError("Value is required.")
+        
         return cleaned_data
-
-
-
-
-
-
+admin.py:
 class ConfigAdmin(DetailedLogModelAdmin):
     form = ConfigAdminForm
     list_per_page = 50
@@ -67,38 +50,19 @@ class ConfigAdmin(DetailedLogModelAdmin):
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
-            # New config
-            return [
-                (None, {
-                    'fields': ('key', 'value_type', 'value', 'boolean_value', 'remarks')
-                }),
-            ]
-        else:
-            # Existing config — original simple layout
-            return [
-                (None, {
-                    'fields': ('key', 'value', 'remarks')
-                }),
-            ]
+            return [(None, {'fields': ('key', 'value_type', 'value', 'boolean_value', 'remarks')})]
+        return [(None, {'fields': ('key', 'value', 'remarks')})]
 
     def get_form(self, request, obj=None, **kwargs):
-        # Pass is_new flag into the form
         form_class = super().get_form(request, obj, **kwargs)
-
         is_new = obj is None
+        class WrappedForm(form_class):
+            def __init__(self, *args, **kw):
+                kw['is_new'] = is_new
+                super().__init__(*args, **kw)
+        return WrappedForm
 
-        class FormWithIsNew(form_class):
-            def __init__(self, *args, **inner_kwargs):
-                inner_kwargs['is_new'] = is_new
-                super().__init__(*args, **inner_kwargs)
-
-        return FormWithIsNew
-
-    def save_model(self, request, config_object, form, change):
-        if not change:  # new object
-            value_type = form.cleaned_data.get('value_type')
-            if value_type == 'boolean':
-                config_object.value = form.cleaned_data.get('boolean_value')
-            else:
-                config_object.value = form.cleaned_data.get('value')
-        ConfigService.save(config_object, request.user)
+    def save_model(self, request, obj, form, change):
+        if not change and form.cleaned_data.get('value_type') == 'boolean':
+            obj.value = form.cleaned_data.get('boolean_value')
+        ConfigService.save(obj, request.user)
