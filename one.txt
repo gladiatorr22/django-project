@@ -74,3 +74,25 @@ class ConfigAdmin(DetailedLogModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.value = form.cleaned_data.get('value')
         ConfigService.save(obj, request.user)
+
+
+
+
+def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.is_boolean = self.instance and self.instance.value in ('true', 'false')
+
+    if self.instance.pk:
+        # Existing config
+        self.fields['value_type'].widget = forms.HiddenInput()
+        if self.is_boolean:
+            self.fields['boolean_value'].initial = self.instance.value
+            self.fields['value'].widget = forms.HiddenInput()
+            self.fields['value'].required = False
+        else:
+            self.fields['boolean_value'].widget = forms.HiddenInput()
+            self.fields['value'].required = True
+    else:
+        # New config
+        self.fields['value'].required = False
+        self.fields['boolean_value'].required = False
