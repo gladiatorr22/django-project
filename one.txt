@@ -1,10 +1,13 @@
-forms.py:
 class ConfigAdminForm(forms.ModelForm):
-    VALUE_TYPE_CHOICES = [('string', 'String'), ('boolean', 'Boolean')]
-    
-    value_type = forms.ChoiceField(choices=VALUE_TYPE_CHOICES, required=False, label='Value Type')
+    VALUE_TYPE_CHOICES = [('boolean', 'Boolean'), ('string', 'String')]
+
+    value_type = forms.ChoiceField(
+        choices=VALUE_TYPE_CHOICES,
+        required=False,
+        label='Value Type'
+    )
     boolean_value = forms.ChoiceField(
-        choices=[('true', 'True'), ('false', 'False')],
+        choices=[('', 'None'), ('true', 'True'), ('false', 'False')],
         widget=forms.RadioSelect,
         required=False,
         label='Boolean Value'
@@ -15,30 +18,41 @@ class ConfigAdminForm(forms.ModelForm):
         fields = ['key', 'value_type', 'value', 'boolean_value', 'remarks']
 
     def __init__(self, *args, **kwargs):
-        self.is_new = kwargs.pop('is_new', False)
         super().__init__(*args, **kwargs)
         self.fields['value'].required = False
-        if not self.is_new:
-            self.fields.pop('value_type', None)
-            self.fields.pop('boolean_value', None)
+        self.is_boolean = (
+            self.instance and self.instance.value in ('true', 'false')
+        )
+        if self.instance.pk:
+            # Existing config
+            self.fields.pop('value_type')
+            if self.is_boolean:
+                self.fields['boolean_value'].initial = self.instance.value
+                self.fields.pop('value')
+            else:
+                self.fields.pop('boolean_value')
 
     def clean(self):
         cleaned_data = super().clean()
-        if not self.is_new:
+        
+        if self.instance.pk:
+            # Existing config
+            if self.is_boolean:
+                if not cleaned_data.get('boolean_value'):
+                    raise forms.ValidationError("Please select a boolean value.")
+                cleaned_data['value'] = cleaned_data['boolean_value']
             return cleaned_data
-        
-        value_type = cleaned_data.get('value_type')
-        value = cleaned_data.get('value', '').strip()
-        boolean_value = cleaned_data.get('boolean_value')
 
+        # New config
+        value_type = cleaned_data.get('value_type')
         if value_type == 'boolean':
-            if not boolean_value:
+            if not cleaned_data.get('boolean_value'):
                 raise forms.ValidationError("Please select a boolean value.")
-            cleaned_data['value'] = boolean_value  # saves 'true'/'false' into value field
+            cleaned_data['value'] = cleaned_data['boolean_value']
         else:
-            if not value:
+            if not cleaned_data.get('value', '').strip():
                 raise forms.ValidationError("Value is required.")
-        
+
         return cleaned_data
 admin.py:
 class ConfigAdmin(DetailedLogModelAdmin):
@@ -50,19 +64,13 @@ class ConfigAdmin(DetailedLogModelAdmin):
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
+            # New config - show all fields
             return [(None, {'fields': ('key', 'value_type', 'value', 'boolean_value', 'remarks')})]
+        # Existing config - show based on value type
+        if obj.value in ('true', 'false'):
+            return [(None, {'fields': ('key', 'boolean_value', 'remarks')})]
         return [(None, {'fields': ('key', 'value', 'remarks')})]
 
-    def get_form(self, request, obj=None, **kwargs):
-        form_class = super().get_form(request, obj, **kwargs)
-        is_new = obj is None
-        class WrappedForm(form_class):
-            def __init__(self, *args, **kw):
-                kw['is_new'] = is_new
-                super().__init__(*args, **kw)
-        return WrappedForm
-
     def save_model(self, request, obj, form, change):
-        if not change and form.cleaned_data.get('value_type') == 'boolean':
-            obj.value = form.cleaned_data.get('boolean_value')
+        obj.value = form.cleaned_data.get('value')
         ConfigService.save(obj, request.user)
