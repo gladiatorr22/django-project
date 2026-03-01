@@ -1,0 +1,193 @@
+from django.test import TestCase, RequestFactory
+from django.contrib.admin.sites import AdminSite
+from unittest.mock import MagicMock, patch
+from core.forms import ConfigAdminForm
+from core.admin import ConfigAdmin
+from core.models.config import Config
+
+
+class ConfigAdminFormTest(TestCase):
+
+    def get_form(self, data=None, instance=None):
+        return ConfigAdminForm(data=data, instance=instance)
+
+    # ─── NEW CONFIG TESTS ───
+
+    def test_new_string_config_valid(self):
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'string',
+            'value': 'hello',
+            'boolean_value': '',
+            'remarks': ''
+        })
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'hello')
+
+    def test_new_boolean_config_valid_true(self):
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'boolean',
+            'value': '',
+            'boolean_value': 'true',
+            'remarks': ''
+        })
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'true')
+
+    def test_new_boolean_config_valid_false(self):
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'boolean',
+            'value': '',
+            'boolean_value': 'false',
+            'remarks': ''
+        })
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'false')
+
+    def test_new_boolean_config_none_selected_invalid(self):
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'boolean',
+            'value': '',
+            'boolean_value': '',  # None selected
+            'remarks': ''
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('Please select a boolean value.', str(form.errors))
+
+    def test_new_string_config_empty_value_invalid(self):
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'string',
+            'value': '',  # empty
+            'boolean_value': '',
+            'remarks': ''
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn('Value is required.', str(form.errors))
+
+    def test_new_boolean_selected_but_text_filled_is_ignored(self):
+        # user selected boolean type but filled text box - radio should win
+        form = self.get_form(data={
+            'key': 'my_key',
+            'value_type': 'boolean',
+            'value': 'some_text',  # should be ignored
+            'boolean_value': 'true',
+            'remarks': ''
+        })
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'true')  # radio wins
+
+    # ─── EXISTING BOOLEAN CONFIG TESTS ───
+
+    def test_existing_boolean_config_shows_correct_initial(self):
+        instance = Config(pk=1, key='flag', value='true')
+        form = ConfigAdminForm(instance=instance)
+        self.assertEqual(form.initial['boolean_value'], 'true')
+
+    def test_existing_boolean_config_update_to_false(self):
+        instance = Config(pk=1, key='flag', value='true')
+        form = self.get_form(
+            data={'key': 'flag', 'boolean_value': 'false', 'remarks': ''},
+            instance=instance
+        )
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'false')
+
+    def test_existing_boolean_config_none_selected_invalid(self):
+        instance = Config(pk=1, key='flag', value='true')
+        form = self.get_form(
+            data={'key': 'flag', 'boolean_value': '', 'remarks': ''},
+            instance=instance
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn('Please select a boolean value.', str(form.errors))
+
+    # ─── EXISTING STRING CONFIG TESTS ───
+
+    def test_existing_string_config_update_valid(self):
+        instance = Config(pk=1, key='my_key', value='old_value')
+        form = self.get_form(
+            data={'key': 'my_key', 'value': 'new_value', 'remarks': ''},
+            instance=instance
+        )
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['value'], 'new_value')
+
+    def test_existing_string_config_empty_value_invalid(self):
+        instance = Config(pk=1, key='my_key', value='old_value')
+        form = self.get_form(
+            data={'key': 'my_key', 'value': '', 'remarks': ''},
+            instance=instance
+        )
+        self.assertFalse(form.is_valid())
+
+    # ─── FIELD VISIBILITY TESTS ───
+
+    def test_new_config_has_value_type_field(self):
+        form = ConfigAdminForm()
+        self.assertIn('value_type', form.fields)
+
+    def test_existing_boolean_config_hides_value_type(self):
+        instance = Config(pk=1, key='flag', value='true')
+        form = ConfigAdminForm(instance=instance)
+        self.assertIsInstance(form.fields['value_type'].widget, forms.HiddenInput)
+
+    def test_existing_string_config_hides_boolean_value(self):
+        instance = Config(pk=1, key='my_key', value='hello')
+        form = ConfigAdminForm(instance=instance)
+        self.assertIsInstance(form.fields['boolean_value'].widget, forms.HiddenInput)
+
+    def test_existing_boolean_config_hides_text_value(self):
+        instance = Config(pk=1, key='flag', value='false')
+        form = ConfigAdminForm(instance=instance)
+        self.assertIsInstance(form.fields['value'].widget, forms.HiddenInput)
+
+
+class ConfigAdminTest(TestCase):
+
+    def setUp(self):
+        self.site = AdminSite()
+        self.admin = ConfigAdmin(Config, self.site)
+        self.request = RequestFactory().get('/')
+
+    def test_new_config_fieldsets_shows_all_fields(self):
+        fieldsets = self.admin.get_fieldsets(self.request, obj=None)
+        fields = fieldsets[0][1]['fields']
+        self.assertIn('value_type', fields)
+        self.assertIn('value', fields)
+        self.assertIn('boolean_value', fields)
+
+    def test_existing_boolean_config_fieldsets_shows_radio(self):
+        obj = Config(pk=1, key='flag', value='true')
+        fieldsets = self.admin.get_fieldsets(self.request, obj=obj)
+        fields = fieldsets[0][1]['fields']
+        self.assertIn('boolean_value', fields)
+        self.assertNotIn('value', fields)
+
+    def test_existing_string_config_fieldsets_shows_text(self):
+        obj = Config(pk=1, key='my_key', value='hello')
+        fieldsets = self.admin.get_fieldsets(self.request, obj=obj)
+        fields = fieldsets[0][1]['fields']
+        self.assertIn('value', fields)
+        self.assertNotIn('boolean_value', fields)
+
+    @patch('core.services.config.ConfigService.save')
+    def test_save_model_calls_config_service(self, mock_save):
+        obj = Config(pk=1, key='flag', value='')
+        form = MagicMock()
+        form.cleaned_data = {'value': 'true'}
+        self.admin.save_model(self.request, obj, form, change=True)
+        self.assertEqual(obj.value, 'true')
+        mock_save.assert_called_once_with(obj, self.request.user)
+
+    @patch('core.services.config.ConfigService.save')
+    def test_save_model_new_boolean_config(self, mock_save):
+        obj = Config(key='flag', value='')
+        form = MagicMock()
+        form.cleaned_data = {'value': 'false'}
+        self.admin.save_model(self.request, obj, form, change=False)
+        self.assertEqual(obj.value, 'false')
+        mock_save.assert_called_once()
