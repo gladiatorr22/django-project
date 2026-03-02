@@ -1,4 +1,4 @@
-iclass ConfigAdminForm(forms.ModelForm):
+isclass ConfigAdminForm(forms.ModelForm):
     VALUE_TYPE_CHOICES = [('boolean', 'Boolean'), ('string', 'String')]
 
     value_type = forms.ChoiceField(
@@ -111,17 +111,22 @@ def clean(self):
     instance = self.instance
     is_existing_boolean = instance and instance.pk and instance.value in ('true', 'false')
     value_type = cleaned_data.get('value_type')
+    value = cleaned_data.get('value', '').strip()
+    boolean_value = cleaned_data.get('boolean_value')
 
     if is_existing_boolean or value_type == 'boolean':
-        if not cleaned_data.get('boolean_value'):
+        if not boolean_value:
             raise forms.ValidationError("Please select True or False.")
-        if cleaned_data.get('value', '').strip():
-            raise forms.ValidationError("Value field must be empty when Boolean is selected. Please clear it.")
-        cleaned_data['value'] = cleaned_data['boolean_value']
+        if value:
+            raise forms.ValidationError("Value field must be empty when Boolean type is selected.")
+        cleaned_data['value'] = boolean_value
 
-    else:
-        if not cleaned_data.get('value', '').strip():
+    else:  # string
+        if boolean_value:
+            raise forms.ValidationError("Boolean value must be None when String type is selected.")
+        if not value:
             raise forms.ValidationError("Value is required.")
-        cleaned_data['boolean_value'] = ''  # clear radio if string selected
+        if value.lower() in ('true', 'false'):
+            raise forms.ValidationError("Value cannot be 'true' or 'false' for String type. Use Boolean type instead.")
 
     return cleaned_data
