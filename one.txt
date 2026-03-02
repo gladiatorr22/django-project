@@ -1,4 +1,4 @@
-class ConfigAdminForm(forms.ModelForm):
+iclass ConfigAdminForm(forms.ModelForm):
     VALUE_TYPE_CHOICES = [('boolean', 'Boolean'), ('string', 'String')]
 
     value_type = forms.ChoiceField(
@@ -103,3 +103,25 @@ def __init__(self, *args, **kwargs):
     else:
         self.fields['value'].required = False
         self.fields['boolean_value'].required = False
+
+
+
+def clean(self):
+    cleaned_data = super().clean()
+    instance = self.instance
+    is_existing_boolean = instance and instance.pk and instance.value in ('true', 'false')
+    value_type = cleaned_data.get('value_type')
+
+    if is_existing_boolean or value_type == 'boolean':
+        if not cleaned_data.get('boolean_value'):
+            raise forms.ValidationError("Please select True or False.")
+        if cleaned_data.get('value', '').strip():
+            raise forms.ValidationError("Value field must be empty when Boolean is selected. Please clear it.")
+        cleaned_data['value'] = cleaned_data['boolean_value']
+
+    else:
+        if not cleaned_data.get('value', '').strip():
+            raise forms.ValidationError("Value is required.")
+        cleaned_data['boolean_value'] = ''  # clear radio if string selected
+
+    return cleaned_data
