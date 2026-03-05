@@ -1,0 +1,24 @@
+apportionment_report_records = [
+    {
+        'partnerRepaymentId': 'TEST-001',
+        'excessAmt': 0,
+        'partnerLoanId': 'LOAN-123',
+        'loanId': 1,
+        'partnerEmiDueAmt': 5000,
+        'interestPaidAmt': 1200,
+        'paidAmt': 5000,
+        'principalPaidAmt': 3800,
+        'customerDebitDate': '2026-02-01',
+        'partnerEmiDueDate': '2026-02-01',
+        'partnerReceiptDate': '2026-02-01',
+        'partnerTransferDate': '2026-02-01',
+        'utr': 'UTR123456',
+        'partnerFee': 100,
+        'partnerCharges_101': 0,
+        'partnerCharges_103': 50,
+        'partnerCharges_106': 0,
+        'customerModeOfPay': 'UPI',
+        'tag': 'test',
+        'productCode': 'KSF001',
+    }
+]
