@@ -22,3 +22,87 @@ apportionment_report_records = [
         'productCode': 'KSF001',
     }
 ]
+
+
+
+class TestUpdateLoanStatusLogging(TestCase):
+    
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username="techops_user",
+            email="techops@paysense.in",
+            password="test123"
+        )
+
+    @patch("collections.views.update_loan_status")
+    @patch("collections.views._check_invalid_provider_status")
+    def test_log_created_on_successful_update(self, mock_check_invalid, mock_update):
+        mock_check_invalid.return_value = []
+        mock_update.return_value = None
+
+        # Create a LoanBook entry with known source state
+        LoanBook.objects.create(
+            provider_loan_id="LAN123",
+            status="LoanActive",
+            # add other required fields
+        )
+
+        request = self.factory.post("/collections/techops/update_loan_status", {
+            "prospect_id": "LAN123",
+            "provider_status": "LoanClosed",
+            "type": "Temporary"
+        })
+        request.user = self.user
+
+        from collections.views import update_loan_status as view
+        view(request)
+
+        log = LoanStatusUpdateLog.objects.get(provider_loan_id="LAN123")
+        self.assertEqual(log.source_state, "LoanActive")
+        self.assertEqual(log.destination_state, "LoanClosed")
+        self.assertEqual(log.update_type, "Temporary")
+        self.assertEqual(log.updated_by, "techops_user")
+
+    @patch("collections.views.update_loan_status")
+    @patch("collections.views._check_invalid_provider_status")
+    def test_no_log_created_on_failed_update(self, mock_check_invalid, mock_update):
+        mock_check_invalid.return_value = []
+        mock_update.side_effect = Exception("Update failed")
+
+        LoanBook.objects.create(
+            provider_loan_id="LAN456",
+            status="LoanActive",
+        )
+
+        request = self.factory.post("/collections/techops/update_loan_status", {
+            "prospect_id": "LAN456",
+            "provider_status": "LoanClosed",
+            "type": "Permanent"
+        })
+        request.user = self.user
+
+        from collections.views import update_loan_status as view
+        view(request)
+
+        self.assertFalse(
+            LoanStatusUpdateLog.objects.filter(provider_loan_id="LAN456").exists()
+        )
+
+    @patch("collections.views._check_invalid_provider_status")
+    def test_no_log_on_invalid_provider(self, mock_check_invalid):
+        mock_check_invalid.return_value = ["LAN789"]
+
+        request = self.factory.post("/collections/techops/update_loan_status", {
+            "prospect_id": "LAN789",
+            "provider_status": "LoanClosed",
+            "type": "Temporary"
+        })
+        request.user = self.user
+
+        from collections.views import update_loan_status as view
+        view(request)
+
+        self.assertFalse(
+            LoanStatusUpdateLog.objects.filter(provider_loan_id="LAN789").exists()
+        )
