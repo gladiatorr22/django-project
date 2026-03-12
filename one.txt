@@ -109,3 +109,26 @@ class TestUpdateLoanStatusLogging(TestCase):
         self.assertFalse(
             LoanStatusUpdateLog.objects.filter(provider_loan_id="LAN789").exists()
         )
+
+
+
+class TestUpdateLoanStatusLogging(django.test.TestCase):
+    fixtures = ["nach_details.json", "loans.json", "update_loan_status_data.json"]
+
+    def test_create_loan_status_log(self):
+        user = User.objects.create_user(username="testuser")
+        loan = Loan.objects.filter(provider_loan_id="KS923545").first()
+
+        LoanStatusUpdateLog.objects.create(
+            provider_loan_id=loan,
+            updated_by=user,
+            source_provider_status=ProviderLoanStatusProviderMap.LoanActive,
+            destination_provider_status=ProviderLoanStatusProviderMap.LoanCancelled,
+            update_type=LoanStatusUpdateType.Temporary,
+        )
+
+        log = LoanStatusUpdateLog.objects.get(provider_loan_id=loan)
+        self.assertEqual(log.source_provider_status, ProviderLoanStatusProviderMap.LoanActive)
+        self.assertEqual(log.destination_provider_status, ProviderLoanStatusProviderMap.LoanCancelled)
+        self.assertEqual(log.update_type, LoanStatusUpdateType.Temporary)
+        self.assertEqual(log.updated_by, user)
