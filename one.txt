@@ -162,3 +162,9 @@ spring.jpa.show-sql=true
 
 # H2 console (browser UI at /h2-console)
 spring.h2.console.enabled=true
+-------------------------------------------------
+{
+  "merchantId": "merchant_001",
+  "amount": 1500.00,
+  "currency": "INR"
+}
