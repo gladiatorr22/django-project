@@ -172,3 +172,71 @@ spring.h2.console.enabled=true
 spring.datasource.url=jdbc:h2:file:./data/admindb
 
 spring.jpa.hibernate.ddl-auto=update
+--------------------------------------------
+package com.example.admin.dto;
+
+public class ApiResponse<T> {
+    private String message;
+    private T data;
+
+    public ApiResponse(String message, T data) {
+        this.message = message;
+        this.data = data;
+    }
+
+    public String getMessage() { return message; }
+    public T getData() { return data; }
+}
+------------------------------------------
+
+@GetMapping
+public ApiResponse<List<Transaction>> getAll(@RequestParam(required = false) TransactionStatus status) {
+    List<Transaction> result = status != null ? service.getByStatus(status) : service.getAll();
+    return new ApiResponse<>("Fetched successfully", result);
+}
+
+@GetMapping("/{id}")
+public ApiResponse<Transaction> getById(@PathVariable Long id) {
+    return new ApiResponse<>("Transaction found", service.getById(id));
+}
+
+@PostMapping
+public ApiResponse<Transaction> create(@RequestBody Transaction transaction) {
+    return new ApiResponse<>("Transaction created", service.create(transaction));
+}
+
+@PutMapping("/{id}")
+public ApiResponse<Transaction> update(@PathVariable Long id, @RequestBody Transaction transaction) {
+    return new ApiResponse<>("Transaction updated", service.update(id, transaction));
+}
+
+@DeleteMapping("/{id}")
+public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    service.delete(id);
+    return ResponseEntity.ok(new ApiResponse<>("Transaction deleted", null));
+}@GetMapping
+public ApiResponse<List<Transaction>> getAll(@RequestParam(required = false) TransactionStatus status) {
+    List<Transaction> result = status != null ? service.getByStatus(status) : service.getAll();
+    return new ApiResponse<>("Fetched successfully", result);
+}
+
+@GetMapping("/{id}")
+public ApiResponse<Transaction> getById(@PathVariable Long id) {
+    return new ApiResponse<>("Transaction found", service.getById(id));
+}
+
+@PostMapping
+public ApiResponse<Transaction> create(@RequestBody Transaction transaction) {
+    return new ApiResponse<>("Transaction created", service.create(transaction));
+}
+
+@PutMapping("/{id}")
+public ApiResponse<Transaction> update(@PathVariable Long id, @RequestBody Transaction transaction) {
+    return new ApiResponse<>("Transaction updated", service.update(id, transaction));
+}
+
+@DeleteMapping("/{id}")
+public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    service.delete(id);
+    return ResponseEntity.ok(new ApiResponse<>("Transaction deleted", null));
+}
