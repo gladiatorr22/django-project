@@ -168,3 +168,7 @@ spring.h2.console.enabled=true
   "amount": 1500.00,
   "currency": "INR"
 }
+----------------------------------------
+spring.datasource.url=jdbc:h2:file:./data/admindb
+
+spring.jpa.hibernate.ddl-auto=update
