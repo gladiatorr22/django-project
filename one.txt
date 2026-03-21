@@ -51,3 +51,114 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByStatusAndDeletedFalse(TransactionStatus status);
     List<Transaction> findByDeletedFalse();
 }
+
+---------------------------------------------------------------------
+package com.example.admin.service;
+
+import com.example.admin.entity.Transaction;
+import com.example.admin.entity.Transaction.TransactionStatus;
+import com.example.admin.repository.TransactionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class TransactionService {
+
+    private final TransactionRepository repo;
+
+    public List<Transaction> getAll() {
+        return repo.findByDeletedFalse();
+    }
+
+    public List<Transaction> getByStatus(TransactionStatus status) {
+        return repo.findByStatusAndDeletedFalse(status);
+    }
+
+    public Transaction getById(Long id) {
+        return repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found: " + id));
+    }
+
+    public Transaction create(Transaction transaction) {
+        transaction.setStatus(TransactionStatus.PENDING);
+        return repo.save(transaction);
+    }
+
+    public Transaction update(Long id, Transaction updated) {
+        Transaction existing = getById(id);
+        existing.setMerchantId(updated.getMerchantId());
+        existing.setAmount(updated.getAmount());
+        existing.setCurrency(updated.getCurrency());
+        existing.setStatus(updated.getStatus());
+        return repo.save(existing);
+    }
+
+    public void delete(Long id) {
+        Transaction existing = getById(id);
+        existing.setDeleted(true);
+        repo.save(existing);
+    }
+}
+--------------------------------------------------------------------------
+package com.example.admin.controller;
+
+import com.example.admin.entity.Transaction;
+import com.example.admin.entity.Transaction.TransactionStatus;
+import com.example.admin.service.TransactionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/transactions")
+@RequiredArgsConstructor
+public class TransactionController {
+
+    private final TransactionService service;
+
+    @GetMapping
+    public List<Transaction> getAll(@RequestParam(required = false) TransactionStatus status) {
+        if (status != null) return service.getByStatus(status);
+        return service.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public Transaction getById(@PathVariable Long id) {
+        return service.getById(id);
+    }
+
+    @PostMapping
+    public Transaction create(@RequestBody Transaction transaction) {
+        return service.create(transaction);
+    }
+
+    @PutMapping("/{id}")
+    public Transaction update(@PathVariable Long id, @RequestBody Transaction transaction) {
+        return service.update(id, transaction);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+----------------------------------------------
+
+spring.application.name=admin
+
+# H2 in-memory DB
+spring.datasource.url=jdbc:h2:mem:admindb
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+
+# H2 console (browser UI at /h2-console)
+spring.h2.console.enabled=true
