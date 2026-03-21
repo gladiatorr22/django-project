@@ -86,14 +86,14 @@ public class TransactionService {
         return repo.save(transaction);
     }
 
-    public Transaction update(Long id, Transaction updated) {
-        Transaction existing = getById(id);
-        existing.setMerchantId(updated.getMerchantId());
-        existing.setAmount(updated.getAmount());
-        existing.setCurrency(updated.getCurrency());
-        existing.setStatus(updated.getStatus());
-        return repo.save(existing);
-    }
+public Transaction update(Long id, Transaction updated) {
+    Transaction existing = getById(id);
+    if (updated.getMerchantId() != null) existing.setMerchantId(updated.getMerchantId());
+    if (updated.getAmount() != null) existing.setAmount(updated.getAmount());
+    if (updated.getCurrency() != null) existing.setCurrency(updated.getCurrency());
+    if (updated.getStatus() != null) existing.setStatus(updated.getStatus());
+    return repo.save(existing);
+}
 
     public void delete(Long id) {
         Transaction existing = getById(id);
